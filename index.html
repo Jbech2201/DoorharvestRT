@@ -2,834 +2,429 @@
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0f1113">
-<title>DoorHarvest</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
-<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js"></script>
-
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DoorHarvest Monitor</title>
 <style>
-:root {
-  color-scheme: dark;
-  --bg: #0f1113;
-  --surface: #181b1e;
-  --surface-2: #202427;
-  --line: #2b3034;
-  --ink: #eef0ee;
-  --ink-2: #b9c0c3;
-  --muted: #8f979c;
-  --amber: #fab219;
-  --red: #b92828;
-  --green: #0f7a3f;
-  --gray: #2d3136;
-  --temp: #d95926;
-  --hum: #3987e5;
-  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
-  --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --hazard: repeating-linear-gradient(-45deg, var(--amber) 0 7px, #16130c 7px 14px);
-}
-* { box-sizing: border-box; }
-[hidden] { display: none !important; }
-html { -webkit-text-size-adjust: 100%; }
-body {
-  margin: 0;
-  min-height: 100dvh;
-  background: var(--bg);
-  color: var(--ink);
-  font: 400 15px/1.45 var(--body);
-}
-.wrap {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: max(14px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
-}
+  :root {
+    color-scheme: light dark;
+    --bg: #f4f4f1;
+    --surface: #fcfcfb;
+    --ink: #0b0b0b;
+    --ink2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --s1: #2a78d6;   /* daya */
+    --s2: #eb6834;   /* arus */
+    --s3: #1baf7a;   /* tegangan */
+    --s4: #eda100;   /* suhu */
+    --s5: #e87ba4;   /* tekanan */
+    --good: #0ca30c;
+    --crit: #d03b3b;
+    --warn: #fab219;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121211;
+      --surface: #1a1a19;
+      --ink: #f0efec;
+      --ink2: #c3c2b7;
+      --muted: #898781;
+      --grid: #2c2c2a;
+      --axis: #383835;
+      --s1: #3987e5;
+      --s2: #d95926;
+      --s3: #199e70;
+      --s4: #c98500;
+      --s5: #d55181;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  header p { margin: 2px 0 0; color: var(--ink2); font-size: 13px; }
+  h2 { font-size: 14px; margin: 0 0 12px; font-weight: 600; color: var(--ink2); }
 
-/* ---------- Header ---------- */
-.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-.brand { font: 800 23px/1 var(--display); letter-spacing: .04em; text-transform: uppercase; }
-.brand span { color: var(--amber); }
-.pill {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 5px 10px; border-radius: 999px;
-  background: var(--surface); border: 1px solid var(--line);
-  color: var(--ink-2); font-size: 13px; font-weight: 500; white-space: nowrap;
-}
-.pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-.pill[data-net="live"] i { background: #2fd27a; animation: pulse 2.4s infinite; }
-.pill[data-net="down"] i { background: var(--amber); }
-@keyframes pulse { 50% { opacity: .35; } }
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
+          background: var(--surface); border: 1px solid var(--grid); font-size: 13px; }
+  .pill .ico { font-size: 12px; line-height: 1; }
+  .pill[data-state="good"] .ico { color: var(--good); }
+  .pill[data-state="bad"] .ico { color: var(--crit); }
+  .pill[data-state="wait"] .ico { color: var(--warn); }
 
-/* ---------- Banner ---------- */
-.banner {
-  position: relative;
-  margin-bottom: 12px;
-  padding: 11px 14px 11px 26px;
-  border-radius: 10px;
-  background: #2a2312;
-  border: 1px solid #5b4716;
-  color: #ffe2a0;
-  font-weight: 500;
-  overflow: hidden;
-}
-.banner::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 12px; background: var(--hazard); }
-.banner strong { display: block; font: 800 19px/1.15 var(--display); letter-spacing: .03em; text-transform: uppercase; color: var(--amber); }
-.banner.quiet { background: var(--surface); border-color: var(--line); color: var(--ink-2); font-size: 14px; }
-.banner.quiet::before { background: var(--muted); width: 4px; }
-.banner.quiet { padding-left: 16px; }
+  .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .tile, .card { background: var(--surface); border: 1px solid var(--grid); border-radius: 14px; padding: 16px; }
+  .tile .k { display: flex; align-items: center; gap: 8px; color: var(--ink2); font-size: 13px; }
+  .key { width: 10px; height: 10px; border-radius: 3px; display: inline-block; background: var(--muted); }
+  .tile .v { font-size: 32px; font-weight: 650; letter-spacing: -0.02em; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .tile .v small { font-size: 14px; font-weight: 500; color: var(--ink2); margin-left: 6px; letter-spacing: 0; }
+  .tile .sub { color: var(--muted); font-size: 12px; margin-top: 2px; min-height: 16px; }
 
-/* ---------- Layout ---------- */
-/* Di HP kedua kolom dilebur: grafik tampil lebih dulu, riwayat panjang di bawahnya. */
-.grid { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
-.left, .right { display: contents; }
-.history { order: 1; }
-.info { order: 2; }
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; min-width: 0; }
-.eyebrow { margin: 0; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+  .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 20px 0 12px; }
+  .seg { display: inline-flex; border: 1px solid var(--grid); border-radius: 10px; overflow: hidden; background: var(--surface); }
+  .seg button { border: 0; background: transparent; color: var(--ink2); padding: 8px 14px; font: inherit; cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--grid); }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); font-weight: 600; }
+  .filters label { color: var(--ink2); font-size: 13px; display: inline-flex; align-items: center; gap: 8px; }
+  select, .btn { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--grid); border-radius: 10px; padding: 8px 10px; }
+  .btn { cursor: pointer; }
+  button:focus-visible, select:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
 
-/* ---------- Kartu pintu ---------- */
-.door {
-  --lift: .45;
-  container-type: inline-size;
-  position: relative;
-  padding: 18px;
-  border-radius: 16px;
-  border: 2px solid transparent;
-  background: var(--gray);
-  color: #fff;
-  overflow: hidden;
-  transition: background-color .3s, border-color .3s;
-}
-.door[data-state="open"]   { background: var(--red); --lift: .88; }
-.door[data-state="closed"] { background: var(--green); --lift: 0; }
-.door[data-state="gray"]   { background: var(--gray); color: var(--ink-2); }
-/* Kuning: warna merah/hijau sengaja dilepas agar status tidak terbaca pasti. */
-.door[data-state="warn"]   { background: #221d12; border-color: var(--amber); color: #f4e6c8; }
-.door[data-state="warn"]::after {
-  content: ""; position: absolute; inset: 0 0 auto 0; height: 7px; background: var(--hazard);
-}
-.door[data-pos="open"]   { --lift: .88; }
-.door[data-pos="closed"] { --lift: 0; }
-.door .eyebrow { color: inherit; opacity: .78; }
-/* Ukuran kata mengikuti lebar kartu dan panjang kata, sehingga CLOSED? pun selalu muat. */
-#doorWord {
-  margin: 6px 0 12px;
-  font: 800 19cqw/.92 var(--display);
-  letter-spacing: .005em;
-}
-#doorWord.big { font-size: 29cqw; }
-#doorWord.long { font-size: 13.5cqw; line-height: 1; }
-.door-foot { display: grid; grid-template-columns: minmax(0, 1fr) 104px; align-items: end; gap: 14px; }
-#doorTag { margin: 0; font: 600 clamp(20px, 5.4vw, 25px)/1.12 var(--display); letter-spacing: .02em; }
-#doorDetail { margin: 5px 0 0; font-size: 14px; opacity: .88; }
-.door[data-state="warn"] #doorTag { color: var(--amber); }
-.door svg { width: 100%; height: auto; display: block; color: inherit; }
-#slats { transform: translateY(calc(var(--lift) * -72px)); transition: transform .55s cubic-bezier(.3,.8,.3,1); }
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+  .grid2 > * { min-width: 0; }
+  .cwrap { position: relative; height: 280px; transition: opacity .2s; }
+  .cwrap.loading { opacity: .55; }
+  .hint { margin: 8px 0 0; color: var(--muted); font-size: 12px; min-height: 16px; }
 
-/* ---------- Kartu angka ---------- */
-.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.stat .val { display: block; margin-top: 3px; font: 800 clamp(44px, 13vw, 60px)/1 var(--display); }
-.stat .val small { font: 600 .42em var(--display); color: var(--ink-2); margin-left: 3px; }
-.stat .sub { display: block; margin-top: 3px; color: var(--muted); font-size: 13px; min-height: 1.45em; }
-.stat .key { display: inline-block; width: 16px; height: 3px; border-radius: 2px; margin-right: 7px; vertical-align: middle; }
-.stale .val { opacity: .5; }
+  .meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; }
+  .meta div { background: var(--surface); border: 1px solid var(--grid); border-radius: 14px; padding: 12px 16px; }
+  .meta span { display: block; color: var(--muted); font-size: 12px; }
+  .meta b { font-weight: 600; font-variant-numeric: tabular-nums; }
 
-/* ---------- Grafik ---------- */
-.chart-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
-.chart-head h2 { margin: 0; font: 600 21px/1.1 var(--display); letter-spacing: .02em; }
-.chart-head span { color: var(--muted); font-size: 13px; }
-.plot { position: relative; height: 176px; }
-.plot canvas { visibility: hidden; }
-.plot.ready canvas { visibility: visible; }
-.plot-msg {
-  position: absolute; inset: 0;
-  display: grid; place-items: center;
-  padding: 16px;
-  color: var(--muted);
-  text-align: center;
-  border: 1px dashed var(--line);
-  border-radius: 10px;
-}
-.tablebox summary { cursor: pointer; color: var(--ink-2); font-weight: 500; }
-.tablescroll { max-height: 280px; overflow: auto; margin-top: 10px; }
-table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
-th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
-th:first-child, td:first-child { text-align: left; }
-th { position: sticky; top: 0; background: var(--surface); color: var(--muted); font-weight: 600; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: var(--ink2); }
+  .tbl { overflow-x: auto; margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
+  th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--ink2); font-weight: 600; }
 
-/* ---------- Riwayat pintu ---------- */
-.events { list-style: none; margin: 8px 0 0; padding: 0; }
-.events li { display: grid; grid-template-columns: 11px 1fr auto; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
-.events li:first-child { border-top: 0; }
-.events i { width: 11px; height: 11px; border-radius: 3px; background: var(--muted); }
-.events .OPEN i { background: #e5484d; }
-.events .CLOSED i { background: #2fb86d; }
-.events b { font: 600 18px/1 var(--display); letter-spacing: .03em; }
-.events time { color: var(--ink-2); font-size: 14px; font-variant-numeric: tabular-nums; text-align: right; }
-.none { margin: 10px 0 2px; color: var(--muted); }
-
-/* ---------- Info alat ---------- */
-.info { display: flex; flex-wrap: wrap; gap: 6px 20px; color: var(--muted); font-size: 13px; padding: 2px 2px 0; }
-.info b { color: var(--ink-2); font-weight: 600; overflow-wrap: anywhere; }
-
-@media (min-width: 900px) {
-  .grid { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: start; }
-  .left, .right { display: grid; gap: 12px; align-content: start; min-width: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; }
-}
+  @media (max-width: 860px) {
+    .tiles, .meta { grid-template-columns: repeat(2, 1fr); }
+    .grid2 { grid-template-columns: minmax(0, 1fr); }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header class="top">
-    <div class="brand">Door<span>Harvest</span></div>
-    <div class="pill" id="netPill" data-net="wait" role="status"><i></i><span id="netText">Menyambung…</span></div>
+  <header>
+    <div>
+      <h1>DoorHarvest Monitor</h1>
+      <p>Pemantauan tegangan, arus, daya, dan energi secara real-time</p>
+    </div>
+    <div id="status" class="pill" data-state="wait" role="status" aria-live="polite">
+      <span class="ico" id="statusIco">◐</span><span id="statusText">Menghubungkan…</span>
+    </div>
   </header>
 
-  <div class="banner" id="bannerMain" role="alert" hidden><strong id="bannerTitle"></strong><span id="bannerText"></span></div>
-  <div class="banner quiet" id="bannerNote" hidden></div>
-
-  <main class="grid">
-    <div class="left">
-      <section class="door" id="door" data-state="gray" aria-labelledby="doorLabel">
-        <p class="eyebrow" id="doorLabel">Status pintu</p>
-        <p id="doorWord" class="long" aria-live="polite">MEMUAT</p>
-        <div class="door-foot">
-        <div>
-          <p id="doorTag">Menghubungkan ke Firebase</p>
-          <p id="doorDetail"></p>
-        </div>
-        <svg viewBox="0 0 120 112" aria-hidden="true">
-          <defs><clipPath id="doorClip"><rect x="14" y="20" width="92" height="80"/></clipPath></defs>
-          <rect x="14" y="20" width="92" height="80" fill="#000" opacity=".38"/>
-          <g clip-path="url(#doorClip)">
-            <g id="slats" fill="currentColor">
-              <rect x="14" y="21" width="92" height="9" rx="1"/><rect x="14" y="32" width="92" height="9" rx="1"/>
-              <rect x="14" y="43" width="92" height="9" rx="1"/><rect x="14" y="54" width="92" height="9" rx="1"/>
-              <rect x="14" y="65" width="92" height="9" rx="1"/><rect x="14" y="76" width="92" height="9" rx="1"/>
-              <rect x="14" y="87" width="92" height="12" rx="1"/>
-            </g>
-          </g>
-          <rect x="6" y="6" width="108" height="15" rx="3" fill="currentColor"/>
-          <rect x="6" y="6" width="8" height="100" rx="2" fill="currentColor"/>
-          <rect x="106" y="6" width="8" height="100" rx="2" fill="currentColor"/>
-          <rect x="0" y="104" width="120" height="6" rx="2" fill="currentColor"/>
-        </svg>
-        </div>
-      </section>
-
-      <div class="stats" id="stats">
-        <section class="panel stat">
-          <p class="eyebrow"><i class="key" style="background:var(--temp)"></i>Suhu</p>
-          <span class="val"><span id="tempVal">—</span><small>°C</small></span>
-          <span class="sub" id="tempSub"></span>
-        </section>
-        <section class="panel stat">
-          <p class="eyebrow"><i class="key" style="background:var(--hum)"></i>Kelembapan</p>
-          <span class="val"><span id="humVal">—</span><small>%</small></span>
-          <span class="sub" id="humSub"></span>
-        </section>
-      </div>
-
-      <section class="panel history">
-        <p class="eyebrow">Riwayat buka-tutup</p>
-        <p class="none" id="eventsNone">Memuat riwayat…</p>
-        <ul class="events" id="events"></ul>
-      </section>
+  <section class="tiles" aria-label="Pengukuran terkini">
+    <div class="tile">
+      <div class="k"><i class="key" style="background:var(--s1)"></i>Daya</div>
+      <div class="v"><span id="vP">–</span><small>mW</small></div>
+      <div class="sub" id="sP"></div>
     </div>
-
-    <div class="right">
-      <section class="panel">
-        <div class="chart-head"><h2>Suhu</h2><span id="tempRange"></span></div>
-        <div class="plot" id="tempPlot">
-          <canvas id="tempChart" role="img" aria-label="Grafik garis suhu; nilainya tersedia di tabel data"></canvas>
-          <div class="plot-msg" id="tempMsg">Memuat riwayat…</div>
-        </div>
-      </section>
-      <section class="panel">
-        <div class="chart-head"><h2>Kelembapan</h2><span id="humRange"></span></div>
-        <div class="plot" id="humPlot">
-          <canvas id="humChart" role="img" aria-label="Grafik garis kelembapan; nilainya tersedia di tabel data"></canvas>
-          <div class="plot-msg" id="humMsg">Memuat riwayat…</div>
-        </div>
-      </section>
-      <details class="panel tablebox">
-        <summary>Tabel data riwayat</summary>
-        <div class="tablescroll">
-          <table>
-            <thead><tr><th>Waktu (WIB)</th><th>Suhu °C</th><th>Lembap %</th></tr></thead>
-            <tbody id="historyRows"></tbody>
-          </table>
-        </div>
-      </details>
-      <div class="info">
-        <span>SSID <b id="ssid">—</b></span>
-        <span>RSSI <b id="rssi">—</b></span>
-        <span>Uptime <b id="uptime">—</b></span>
-        <span>Update <b id="updated">—</b></span>
-      </div>
+    <div class="tile">
+      <div class="k"><i class="key" style="background:var(--s2)"></i>Arus</div>
+      <div class="v"><span id="vI">–</span><small>mA</small></div>
+      <div class="sub" id="sI"></div>
     </div>
-  </main>
+    <div class="tile">
+      <div class="k"><i class="key" style="background:var(--s3)"></i>Tegangan</div>
+      <div class="v"><span id="vV">–</span><small>V</small></div>
+      <div class="sub" id="sV"></div>
+    </div>
+    <div class="tile">
+      <div class="k"><i class="key"></i>Energi terkumpul</div>
+      <div class="v"><span id="vE">–</span><small>mWh</small></div>
+      <div class="sub">sejak perangkat menyala</div>
+    </div>
+    <div class="tile">
+      <div class="k"><i class="key" style="background:var(--s4)"></i>Suhu</div>
+      <div class="v"><span id="vT">–</span><small>°C</small></div>
+      <div class="sub">BMP280</div>
+    </div>
+  </section>
+
+  <section class="filters" aria-label="Pengaturan grafik">
+    <div class="seg" role="group" aria-label="Metrik">
+      <button type="button" data-metric="power_mW" aria-pressed="true">Daya</button>
+      <button type="button" data-metric="current_mA" aria-pressed="false">Arus</button>
+      <button type="button" data-metric="loadV" aria-pressed="false">Tegangan</button>
+      <button type="button" data-metric="temp_C" aria-pressed="false">Suhu</button>
+    </div>
+    <label>Riwayat
+      <select id="range">
+        <option value="50">50 titik</option>
+        <option value="200" selected>200 titik</option>
+        <option value="500">500 titik</option>
+        <option value="1000">1000 titik</option>
+      </select>
+    </label>
+    <button type="button" class="btn" id="csv">Unduh CSV</button>
+  </section>
+
+  <section class="grid2">
+    <article class="card">
+      <h2>Live · MQTT</h2>
+      <div class="cwrap"><canvas id="liveChart" role="img" aria-label="Grafik data live"></canvas></div>
+      <p class="hint" id="liveHint"></p>
+    </article>
+    <article class="card">
+      <h2>Riwayat · Firebase</h2>
+      <div class="cwrap" id="histWrap"><canvas id="histChart" role="img" aria-label="Grafik riwayat data"></canvas></div>
+      <p class="hint" id="histHint"></p>
+    </article>
+  </section>
+
+  <section class="meta" aria-label="Info perangkat">
+    <div><span>Jaringan WiFi</span><b id="mSsid">–</b></div>
+    <div><span>Kekuatan sinyal</span><b id="mRssi">–</b></div>
+    <div><span>Uptime</span><b id="mUp">–</b></div>
+    <div><span>Data terakhir</span><b id="mLast">–</b></div>
+  </section>
+
+  <details class="card">
+    <summary>Tampilkan tabel data (20 terakhir dari Firebase)</summary>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Waktu</th><th>Tegangan (V)</th><th>Arus (mA)</th><th>Daya (mW)</th><th>Energi (mWh)</th><th>Suhu (°C)</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </details>
 </div>
 
-<script type="module">
-/* =====================================================================
-   KONFIGURASI FIREBASE
-   Sumber: Firebase Console > Project settings > Your apps > SDK setup.
-   databaseURL ditulis LENGKAP dengan https://, berbeda dari FIREBASE_HOST
-   di sketsa ESP32 yang ditulis tanpa https://. Lihat README.md.
-   ===================================================================== */
-const firebaseConfig = {
-  apiKey: "AIzaSyCf5MozZPdg8rX1ISIXqbTBuCaLB7Isrtc",
-  authDomain: "doorharvest.firebaseapp.com",
-  databaseURL: "https://doorharvest-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "doorharvest",
-  storageBucket: "doorharvest.firebasestorage.app",
-  appId: "1:414105987844:web:f47cec2809d57e3d2cbe51"
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script>
+/* ============ KONFIGURASI (edit bagian ini) ============ */
+const CONFIG = {
+  mqttUrl: 'wss://broker.hivemq.com:8884/mqtt',   // WebSocket aman milik broker publik HiveMQ
+  deviceId: 'dh-usk-9x4k',                        // HARUS sama dengan DEVICE_ID di firmware
+  firebaseDbUrl: 'https://doorharvest-default-rtdb.asia-southeast1.firebasedatabase.app',
+  historyPollMs: 15000,
+  offlineAfterMs: 10000,
+  liveMax: 180
+};
+/* ======================================================== */
+
+const TOPIC_BASE = 'doorharvest/' + CONFIG.deviceId;
+const METRICS = {
+  power_mW:   { label: 'Daya',     unit: 'mW', digits: 2, color: '--s1' },
+  current_mA: { label: 'Arus',     unit: 'mA', digits: 2, color: '--s2' },
+  loadV:      { label: 'Tegangan', unit: 'V',  digits: 3, color: '--s3' },
+  temp_C:     { label: 'Suhu',     unit: '°C', digits: 2, color: '--s4' }
 };
 
-const SDK = "https://www.gstatic.com/firebasejs/10.14.1";
-const PATHS = {
-  current: "device/esp32/current",
-  history: "device/esp32/history",
-  events:  "device/esp32/events"
-};
+let metric = 'power_mW';
+const live = [];
+let hist = [];
+let lastMsgAt = 0;
+let mqttState = 'connecting';   // connecting | connected | disconnected
+let deviceStatus = '';          // online | offline | ''
 
-// Ambang data basi (detik) sesuai spesifikasi.
-const STALE_WARN_S = 10;     // door_age >= ini: kuning
-const STALE_INVALID_S = 60;  // door_age >= ini: abu, status tidak valid
-const DEVICE_OFFLINE_S = 90; // /current tidak diperbarui lebih lama dari ini: alat offline
-
-// Isi dengan interval tulis /current bila ESP32 menulis jarang (mis. 30 detik),
-// supaya jeda normal antar-paket tidak memicu peringatan kuning. Lihat effectiveAge().
-const UPDATE_GRACE_S = 0;
-
-const CONNECT_TIMEOUT_MS = 8000;
-const HISTORY_GAP_S = 15 * 60; // jeda lebih dari ini diputus di grafik, bukan disambung
-const MIN_VALID_TS = 1600000000; // ts di bawah ini = NTP belum sinkron
-
-const COLORS = { temp: "#d95926", hum: "#3987e5", surface: "#181b1e", grid: "#2b3034", muted: "#8f979c", ink: "#eef0ee" };
-
-/* ---------- Helper ---------- */
-const $ = id => document.getElementById(id);
-const setText = (id, value) => { const el = $(id); if (el.textContent !== value) el.textContent = value; };
-
-// Mengembalikan angka valid atau null; field yang hilang tidak pernah jadi NaN.
-function num(value) {
-  if (value === null || value === undefined || value === "") return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-const validTs = ts => { const n = num(ts); return n !== null && n >= MIN_VALID_TS ? n : null; };
-const fmt1 = v => v === null ? "—" : v.toLocaleString("id-ID", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-
-const timeFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-const dateFmt = new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", day: "numeric", month: "short" });
-const wibTime = ms => timeFmt.format(ms);
-const wibDate = ms => dateFmt.format(ms);
-const wibFull = ms => `${wibDate(ms)}, ${wibTime(ms)}`;
-
-function fmtAgo(sec) {
-  const s = Math.max(0, Math.round(sec));
-  if (s < 60) return `${s} dtk`;
-  if (s < 3600) return `${Math.floor(s / 60)} mnt`;
-  if (s < 86400) return `${Math.floor(s / 3600)} jam ${Math.floor(s / 60) % 60} mnt`;
-  return `${Math.floor(s / 86400)} hari`;
-}
-function fmtUptime(sec) {
-  const n = num(sec);
-  if (n === null || n < 0) return "—";
-  const s = Math.floor(n), d = Math.floor(s / 86400), h = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60;
-  if (d) return `${d}h ${h}j`;
-  if (h) return `${h}j ${m}m`;
-  if (m) return `${m}m`;
-  return `${s}d`;
-}
-
-/* ---------- State ---------- */
-const state = {
-  current: undefined,   // undefined = belum ada jawaban, null = /current kosong
-  arrivalMs: 0,         // waktu paket terakhir diterima browser ini
-  arrivals: 0,          // jumlah paket yang terlihat sejak halaman dibuka
-  infoConnected: null,  // null = koneksi pertama belum selesai
-  serverOffsetMs: 0,
-  historyLoaded: false,
-  eventsLoaded: false,
-  fatal: null
-};
-// Jam server Firebase; jam HP yang meleset tidak akan memalsukan status "offline".
-const nowMs = () => Date.now() + state.serverOffsetMs;
-
-function netState() {
-  if (!navigator.onLine || state.infoConnected === false) return "down";
-  return state.infoConnected ? "live" : "wait";
-}
-
-/* ---------- Logika data basi ---------- */
-
-// Umur paket /current. ts=0 berarti NTP belum sinkron, jadi dipakai waktu tiba di
-// browser. Waktu tiba baru bisa dipercaya mulai paket kedua: paket pertama setelah
-// halaman dibuka bisa saja tulisan lama yang sudah berjam-jam di database.
-function snapshotAge(cur) {
-  const ts = validTs(cur.ts);
-  if (ts !== null) return { ageS: Math.max(0, nowMs() / 1000 - ts), trusted: true };
-  return { ageS: Math.max(0, (nowMs() - state.arrivalMs) / 1000), trusted: state.arrivals >= 2 };
-}
-
-// door_age adalah nilai beku saat ESP32 menulis. Kalau ESP32 mati, field ini tetap
-// misalnya 2 selamanya, jadi umur paket harus ditambahkan agar sinyalnya terus menua.
-function effectiveAge(rawDoorAge, snapAgeS) {
-  return rawDoorAge + Math.max(0, snapAgeS - UPDATE_GRACE_S);
-}
-
-// Satu-satunya tempat yang memutuskan seberapa yakin status pintu boleh ditampilkan.
-// level: "ok" (merah/hijau), "warn" (kuning), "invalid" (abu).
-function assessDoor(cur) {
-  const door = cur.door === "OPEN" || cur.door === "CLOSED" ? cur.door : "UNKNOWN";
-  const raw = num(cur.door_age);
-  const { ageS, trusted } = snapshotAge(cur);
-  const online = netState() !== "down";
-  const base = { door, raw, ageS, trusted };
-
-  if (raw === null) return { ...base, level: "invalid", reason: "no-age" };
-  if (raw < 0 || raw >= STALE_INVALID_S) return { ...base, level: "invalid", reason: "transmitter" };
-
-  const effective = effectiveAge(raw, ageS);
-  if (effective >= STALE_INVALID_S || ageS > DEVICE_OFFLINE_S) {
-    // Paket berhenti datang: yang bermasalah alat atau koneksi kita, bukan transmitter.
-    return { ...base, effective, level: "invalid", reason: online ? "device" : "net" };
-  }
-  if (door === "UNKNOWN") return { ...base, effective, level: "invalid", reason: "unknown" };
-  if (!online) return { ...base, effective, level: "warn", reason: "net" };
-  if (effective >= STALE_WARN_S) return { ...base, effective, level: "warn", reason: "stale" };
-  if (!trusted) return { ...base, effective, level: "warn", reason: "clock" };
-  return { ...base, effective, level: "ok", reason: "fresh" };
-}
-
-/* ---------- Render ---------- */
-function setDoor({ state: st, pos = "", word, tag, detail = "" }) {
-  const door = $("door");
-  door.dataset.state = st;
-  door.dataset.pos = pos;
-  $("doorWord").classList.toggle("big", word.length <= 5);
-  $("doorWord").classList.toggle("long", word.length > 7);
-  setText("doorWord", word);
-  setText("doorTag", tag);
-  setText("doorDetail", detail);
-}
-
-function renderDoor() {
-  if (state.fatal) return setDoor({ state: "gray", word: state.fatal.word, tag: state.fatal.tag, detail: state.fatal.detail });
-
-  // Tiga kondisi yang mudah tertukar. Urutannya penting: state.fatal (akses ditolak) sudah
-  // ditangani di atas, lalu koneksi diperiksa sebelum "kosong", karena "kosong" hanya sah
-  // kalau server benar-benar bisa ditanya.
-  if (!state.current && netState() === "down") {
-    return setDoor({
-      state: "gray", word: "TERPUTUS", tag: "Dashboard tidak tersambung internet",
-      detail: "Isi database belum bisa diketahui. Periksa WiFi atau data seluler perangkat ini. Halaman menyambung ulang otomatis."
-    });
-  }
-  if (state.current === undefined) return setDoor({ state: "gray", word: "MEMUAT", tag: "Menghubungkan ke Firebase" });
-  if (state.current === null) {
-    return setDoor({
-      state: "gray", word: "MENUNGGU", tag: "Alat belum pernah mengirim data",
-      detail: "Dashboard tersambung dan database bisa dibaca, tetapi masih kosong. Periksa serial monitor ESP32 untuk melihat hasil upload. Halaman terisi otomatis begitu paket pertama masuk."
-    });
-  }
-
-  const a = assessDoor(state.current);
-  const lastKnown = a.door === "UNKNOWN" ? "" : `Status terakhir ${a.door}. `;
-
-  if (a.level === "ok") {
-    return setDoor({
-      state: a.door.toLowerCase(), word: a.door,
-      tag: a.door === "OPEN" ? "Pintu terbuka" : "Pintu tertutup",
-      detail: `Sinyal RF ${fmtAgo(a.effective)} lalu`
-    });
-  }
-  if (a.level === "warn") {
-    const tag = { stale: "Data mungkin basi", net: "Koneksi dashboard terputus", clock: "Data mungkin basi" }[a.reason];
-    const detail = a.reason === "clock"
-      ? "Jam alat belum sinkron, umur data belum bisa dipastikan."
-      : `Sinyal RF terakhir ${fmtAgo(a.effective)} lalu`;
-    return setDoor({ state: "warn", pos: a.door.toLowerCase(), word: `${a.door}?`, tag, detail });
-  }
-  // Abu: kata OPEN/CLOSED tidak ditampilkan besar agar tidak dibaca sebagai fakta.
-  const invalid = {
-    transmitter: ["Transmitter tidak terjangkau", a.raw < 0 ? "Belum pernah ada sinyal RF sejak alat menyala." : `${lastKnown}Sinyal RF terakhir ${fmtAgo(a.raw)} sebelum paket ini.`],
-    "no-age": ["Transmitter tidak terjangkau", `${lastKnown}Usia sinyal RF tidak dilaporkan alat.`],
-    device: ["Alat tidak mengirim data", `${lastKnown}Paket terakhir ${fmtAgo(a.ageS)} lalu.`],
-    net: ["Koneksi dashboard terputus", `${lastKnown}Paket terakhir ${fmtAgo(a.ageS)} lalu.`],
-    unknown: ["Status pintu tidak diketahui", "Alat aktif, tetapi belum menentukan status pintu."]
-  }[a.reason];
-  setDoor({
-    state: "gray",
-    word: a.reason === "unknown" ? "UNKNOWN" : "TIDAK VALID",
-    tag: invalid[0], detail: invalid[1]
-  });
-}
-
-function renderBanners() {
-  const main = $("bannerMain"), note = $("bannerNote");
-  const cur = state.current;
-  let title = "", text = "", noteText = "";
-
-  if (netState() === "down") {
-    // Saat koneksi kita sendiri putus, "alat offline" tidak bisa disimpulkan.
-    if (cur) {
-      title = "Koneksi dashboard terputus";
-      text = "Menampilkan data terakhir yang diterima. Status alat tidak diketahui sampai tersambung lagi.";
-    }
-  } else if (cur) {
-    const { ageS, trusted } = snapshotAge(cur);
-    if (ageS > DEVICE_OFFLINE_S) {
-      const ts = validTs(cur.ts);
-      title = "Alat offline";
-      text = ts !== null
-        ? `Update terakhir ${fmtAgo(ageS)} lalu (${wibFull(ts * 1000)} WIB).`
-        : `Tidak ada update selama ${fmtAgo(ageS)} sejak halaman dibuka.`;
-    } else if (validTs(cur.ts) === null) {
-      noteText = trusted ? "Jam alat belum sinkron (NTP). Waktu update dihitung dari jam browser." : "Jam alat belum sinkron (NTP). Menunggu paket berikutnya untuk memastikan alat aktif.";
-    }
-  }
-
-  main.hidden = !title;
-  if (title) { setText("bannerTitle", title); setText("bannerText", text); }
-  note.hidden = !noteText;
-  setText("bannerNote", noteText);
-}
-
-function renderPill() {
-  const net = netState();
-  const pill = $("netPill");
-  pill.dataset.net = net;
-  setText("netText", { live: "Terhubung", down: "Terputus", wait: "Menyambung…" }[net]);
-}
-
-function renderCurrent() {
-  const cur = state.current || {};
-  const has = !!state.current;
-  const temp = num(cur.temp), hum = num(cur.hum);
-  const fresh = has && netState() !== "down" && snapshotAge(cur).ageS <= DEVICE_OFFLINE_S;
-
-  setText("tempVal", fmt1(temp));
-  setText("humVal", fmt1(hum));
-  const missing = has ? "Sensor tidak mengirim" : "";
-  setText("tempSub", temp === null ? missing : fresh ? "" : "Nilai terakhir");
-  setText("humSub", hum === null ? missing : fresh ? "" : "Nilai terakhir");
-  $("stats").classList.toggle("stale", has && !fresh);
-
-  setText("ssid", cur.ssid ? String(cur.ssid) : "—");
-  const rssi = num(cur.rssi);
-  setText("rssi", rssi === null ? "—" : `${rssi} dBm`);
-  setText("uptime", fmtUptime(cur.uptime));
-  setText("updated", has ? `${fmtAgo(snapshotAge(cur).ageS)} lalu` : "—");
-}
-
-function render() {
-  renderPill();
-  renderDoor();
-  renderBanners();
-  renderCurrent();
-  renderWaiting();
-}
-
-// Saat offline SDK tidak pernah menjawab maupun error, jadi "Memuat…" harus diganti sendiri.
-function renderWaiting() {
-  if (state.fatal) return;
-  const text = netState() === "down" ? "Menunggu koneksi internet…" : "Memuat riwayat…";
-  if (!state.historyLoaded) for (const key of ["temp", "hum"]) setText(`${key}Msg`, text);
-  if (!state.eventsLoaded) setText("eventsNone", text);
-}
-
-/* ---------- Riwayat pintu ---------- */
-function renderEvents(items, errorText) {
-  const list = $("events"), none = $("eventsNone");
-  list.replaceChildren();
-  if (errorText || !items.length) {
-    none.hidden = false;
-    none.textContent = errorText || "Belum ada perubahan status pintu.";
-    return;
-  }
-  none.hidden = true;
-  for (const e of items) {
-    const door = e.door === "OPEN" || e.door === "CLOSED" ? e.door : "UNKNOWN";
-    const ts = validTs(e.ts);
-    const li = document.createElement("li");
-    li.className = door;
-    const label = document.createElement("b");
-    label.textContent = door;
-    const time = document.createElement("time");
-    time.textContent = ts === null ? "waktu belum sinkron" : `${wibFull(ts * 1000)} WIB`;
-    li.append(document.createElement("i"), label, time);
-    list.append(li);
-  }
-}
+const $ = (id) => document.getElementById(id);
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const num = (v, d) => (typeof v === 'number' && isFinite(v)) ? v.toFixed(d) : '–';
 
 /* ---------- Grafik ---------- */
-const charts = {};
-
-// Garis vertikal yang mengikuti titik terdekat saat disentuh/di-hover.
 const crosshair = {
-  id: "crosshair",
-  afterDraw(chart) {
-    const active = chart.tooltip?.getActiveElements?.()[0];
-    if (!active) return;
-    const { ctx, chartArea } = chart;
-    ctx.save();
-    ctx.strokeStyle = COLORS.muted;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(active.element.x, chartArea.top);
-    ctx.lineTo(active.element.x, chartArea.bottom);
-    ctx.stroke();
-    ctx.restore();
+  id: 'crosshair',
+  afterDatasetsDraw(chart) {
+    const act = chart.tooltip && chart.tooltip.getActiveElements ? chart.tooltip.getActiveElements() : [];
+    if (!act.length) return;
+    const x = act[0].element.x, a = chart.chartArea, c = chart.ctx;
+    c.save(); c.beginPath(); c.moveTo(x, a.top); c.lineTo(x, a.bottom);
+    c.lineWidth = 1; c.strokeStyle = css('--muted'); c.stroke(); c.restore();
   }
 };
 
-// Titik hanya digambar kalau berdiri sendiri; kalau tidak, data itu tak terlihat di garis.
-function isolatedPointRadius(ctx) {
-  const data = ctx.dataset.data, i = ctx.dataIndex;
-  if (i === undefined || data[i]?.y == null) return 0;
-  return data[i - 1]?.y == null && data[i + 1]?.y == null ? 3 : 0;
-}
-
-function pickStep(rangeMs) {
-  const minute = 60000;
-  const steps = [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440, 2880, 7200].map(m => m * minute);
-  return steps.find(s => rangeMs / s <= 5) || 14400 * minute;
-}
-
-// Tick dibuat sendiri supaya jatuh di jam bulat WIB (kelipatan step pada UTC+7).
-function wibTicks(min, max) {
-  const offset = 7 * 3600000, step = pickStep(max - min), ticks = [];
-  for (let t = Math.ceil((min + offset) / step) * step - offset; t <= max; t += step) ticks.push({ value: t });
-  return ticks;
-}
-
-function makeChart(canvasId, color, unit) {
-  return new Chart($(canvasId), {
-    type: "line",
-    data: { datasets: [{
-      data: [], borderColor: color, borderWidth: 2, spanGaps: false,
-      cubicInterpolationMode: "monotone",
-      pointRadius: isolatedPointRadius, pointBackgroundColor: color,
-      pointHoverRadius: 5, pointHoverBackgroundColor: color,
-      pointHoverBorderColor: COLORS.surface, pointHoverBorderWidth: 2, pointHitRadius: 14
-    }] },
+function makeChart(canvas) {
+  return new Chart(canvas, {
+    type: 'line',
+    data: { labels: [], datasets: [{ data: [], borderWidth: 2, pointRadius: 0, pointHoverRadius: 4,
+                                     pointHoverBorderWidth: 2, tension: 0.25, fill: false }] },
     options: {
       responsive: true, maintainAspectRatio: false, animation: false,
-      interaction: { mode: "nearest", axis: "x", intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: "#0b0d0e", borderColor: COLORS.grid, borderWidth: 1,
-          titleColor: COLORS.muted, bodyColor: COLORS.ink, displayColors: false, padding: 9,
-          callbacks: {
-            title: items => items.length ? `${wibFull(items[0].parsed.x)} WIB` : "",
-            label: item => `${fmt1(item.parsed.y)} ${unit}`
-          }
-        }
-      },
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false }, tooltip: { displayColors: false, padding: 10 } },
       scales: {
-        x: {
-          type: "linear",
-          grid: { color: COLORS.grid, drawTicks: false },
-          border: { color: COLORS.grid },
-          afterBuildTicks: axis => { axis.ticks = wibTicks(axis.min, axis.max); },
-          ticks: { color: COLORS.muted, maxRotation: 0, autoSkip: false, padding: 6, font: { size: 11 } }
-        },
-        y: {
-          grace: "12%",
-          grid: { color: COLORS.grid, drawTicks: false },
-          border: { display: false },
-          ticks: { color: COLORS.muted, maxTicksLimit: 5, padding: 6, font: { size: 11 } }
-        }
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 6, maxRotation: 0 } },
+        y: { grace: '10%', ticks: { maxTicksLimit: 6 } }
       }
     },
     plugins: [crosshair]
   });
 }
 
-// Mengubah entri history menjadi titik satu sensor. Jeda panjang diberi null supaya
-// garis putus, bukan menghubungkan dua waktu seolah datanya bersambung.
-function seriesFrom(rows, field) {
-  const points = [];
-  let prev = null;
-  for (const row of rows) {
-    if (prev !== null && row.ts - prev > HISTORY_GAP_S) points.push({ x: (prev + 1) * 1000, y: null });
-    points.push({ x: row.ts * 1000, y: num(row[field]) });
-    prev = row.ts;
-  }
-  return points;
+const liveChart = makeChart($('liveChart'));
+const histChart = makeChart($('histChart'));
+
+function paint(chart, rows, labelFn) {
+  const m = METRICS[metric], color = css(m.color), surface = css('--surface');
+  const ds = chart.data.datasets[0];
+  chart.data.labels = rows.map(labelFn);
+  ds.data = rows.map((r) => r[metric]);
+  ds.borderColor = color;
+  ds.pointHoverBackgroundColor = color;
+  ds.pointHoverBorderColor = surface;
+
+  const o = chart.options;
+  o.plugins.tooltip.backgroundColor = surface;
+  o.plugins.tooltip.borderColor = css('--grid');
+  o.plugins.tooltip.borderWidth = 1;
+  o.plugins.tooltip.titleColor = css('--ink2');
+  o.plugins.tooltip.bodyColor = css('--ink');
+  o.plugins.tooltip.bodyFont = { size: 14, weight: '600' };
+  o.plugins.tooltip.callbacks = { label: (c) => num(c.parsed.y, m.digits) + ' ' + m.unit };
+  o.scales.x.ticks.color = css('--ink2');
+  o.scales.x.border = { color: css('--axis') };
+  o.scales.y.ticks.color = css('--ink2');
+  o.scales.y.grid = { color: css('--grid') };
+  o.scales.y.border = { display: false };
+  o.scales.y.title = { display: true, text: m.label + ' (' + m.unit + ')', color: css('--ink2') };
+  chart.update('none');
 }
 
-function renderChart(key, rows, emptyText) {
-  const plot = $(`${key}Plot`), msg = $(`${key}Msg`);
-  const field = key === "temp" ? "temp" : "hum";
-  const unit = key === "temp" ? "°C" : "%";
-  const points = seriesFrom(rows, field);
-  const values = points.map(p => p.y).filter(y => y !== null);
-  const fail = text => {
-    plot.classList.remove("ready");
-    msg.hidden = false;
-    msg.textContent = text;
-    setText(`${key}Range`, "");
-  };
+const timeLabel = (r) => new Date(r.t).toLocaleTimeString('id-ID', { hour12: false });
+const histLabel = (r) => new Date(r.ts).toLocaleString('id-ID', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
 
-  if (!values.length) return fail(emptyText);
-  if (!window.Chart) return fail("Pustaka grafik gagal dimuat. Data tetap ada di tabel.");
-
-  charts[key] ||= makeChart(`${key}Chart`, COLORS[key], unit);
-  const chart = charts[key];
-  const xs = points.map(p => p.x);
-  // Satu titik saja tetap diberi rentang agar sumbu X tidak runtuh.
-  const padMs = xs.length === 1 || Math.min(...xs) === Math.max(...xs) ? 1800000 : 0;
-  const min = Math.min(...xs) - padMs, max = Math.max(...xs) + padMs;
-  const range = max - min;
-
-  chart.data.datasets[0].data = points;
-  chart.options.scales.x.min = min;
-  chart.options.scales.x.max = max;
-  chart.options.scales.x.ticks.callback = value => range > 20 * 3600000 ? `${wibDate(value)} ${wibTime(value)}` : wibTime(value);
-  chart.update("none");
-
-  msg.hidden = true;
-  plot.classList.add("ready");
-  setText(`${key}Range`, `min ${fmt1(Math.min(...values))} · maks ${fmt1(Math.max(...values))} ${unit}`);
+function renderCharts() {
+  paint(liveChart, live, timeLabel);
+  paint(histChart, hist, histLabel);
 }
 
-function renderHistory(rows, errorText) {
-  const empty = errorText || "Belum ada riwayat. Alat menyimpan titik baru tiap 5 menit.";
-  renderChart("temp", rows, errorText || (rows.length ? "Belum ada data suhu di riwayat." : empty));
-  renderChart("hum", rows, errorText || (rows.length ? "Belum ada data kelembapan di riwayat." : empty));
-
-  const body = $("historyRows");
-  body.replaceChildren();
-  for (const row of [...rows].reverse()) {
-    const tr = document.createElement("tr");
-    for (const text of [wibFull(row.ts * 1000), fmt1(num(row.temp)), fmt1(num(row.hum))]) {
-      const td = document.createElement("td");
-      td.textContent = text;
-      tr.append(td);
-    }
-    body.append(tr);
-  }
+/* ---------- Tampilan angka & status ---------- */
+function updateTiles(d, sourceNote) {
+  $('vP').textContent = num(d.power_mW, 2);
+  $('vI').textContent = num(d.current_mA, 2);
+  $('vV').textContent = num(d.loadV, 3);
+  $('vE').textContent = num(d.energy_mWh, 3);
+  $('vT').textContent = num(d.temp_C, 1);  $('sP').textContent = sourceNote || '';
+  $('sI').textContent = '';
+  $('sV').textContent = (typeof d.busV === 'number') ? 'sisi beban ' + num(d.busV, 3) + ' V' : '';
+  $('mSsid').textContent = d.ssid || '–';
+  $('mRssi').textContent = (typeof d.rssi === 'number') ? d.rssi + ' dBm' : '–';
+  $('mUp').textContent = (typeof d.uptime_s === 'number') ? fmtUptime(d.uptime_s) : '–';
 }
 
-/* ---------- Firebase ---------- */
-function denied(err) {
-  return err?.code === "PERMISSION_DENIED" || /permission/i.test(err?.message || "");
+function fmtUptime(s) {
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
+  return [h, m, x].map((n) => String(n).padStart(2, '0')).join(':');
 }
 
-const readError = (err, what) => denied(err) ? `Akses ditolak oleh Rules, ${what} tidak bisa dibaca.` : `${what} gagal dibaca.`;
-
-function setFatal(word, tag, detail) {
-  state.fatal = { word, tag, detail };
-  for (const key of ["temp", "hum"]) $(`${key}Msg`).textContent = tag;
-  $("eventsNone").textContent = tag;
-  render();
+function setStatus(state, icon, text) {
+  $('status').dataset.state = state;
+  $('statusIco').textContent = icon;
+  $('statusText').textContent = text;
 }
 
-async function start() {
-  if (Object.values(firebaseConfig).some(v => !v || v === "ISI_INI")) {
-    return setFatal("BELUM DIATUR", "Konfigurasi Firebase belum diisi", "Ganti nilai ISI_INI di bagian atas skrip file index.html.");
-  }
+function refreshStatus() {
+  const age = Date.now() - lastMsgAt;
+  if (mqttState === 'connecting') return setStatus('wait', '◐', 'Menghubungkan ke broker…');
+  if (mqttState === 'disconnected') return setStatus('bad', '✕', 'Broker terputus');
+  if (lastMsgAt && age < CONFIG.offlineAfterMs) return setStatus('good', '●', 'Perangkat online');
+  if (!lastMsgAt && deviceStatus !== 'offline') return setStatus('wait', '◐', 'Menunggu data perangkat…');
+  setStatus('bad', '○', 'Perangkat offline');
+}
+setInterval(refreshStatus, 1000);
 
-  let app, database;
-  try {
-    [app, database] = await Promise.all([
-      import(`${SDK}/firebase-app.js`),
-      import(`${SDK}/firebase-database.js`)
-    ]);
-  } catch (err) {
-    console.error(err);
-    return navigator.onLine
-      ? setFatal("GAGAL MULAI", "SDK Firebase tidak bisa diunduh", "Browser atau jaringan ini memblokir www.gstatic.com. Coba jaringan lain, lalu muat ulang.")
-      : setFatal("TERPUTUS", "Dashboard tidak tersambung internet", "Muat ulang setelah internet kembali.");
-  }
+/* ---------- MQTT ---------- */
+function onTelemetry(d) {
+  d.t = Date.now();
+  lastMsgAt = d.t;
+  live.push(d);
+  if (live.length > CONFIG.liveMax) live.shift();
+  updateTiles(d, '');
+  $('mLast').textContent = new Date(d.t).toLocaleTimeString('id-ID', { hour12: false });
+  $('liveHint').textContent = live.length + ' titik terakhir (memperbarui tiap ±2 detik)';
+  paint(liveChart, live, timeLabel);
+  refreshStatus();
+}
 
-  let db;
-  try {
-    db = database.getDatabase(app.initializeApp(firebaseConfig));
-  } catch (err) {
-    console.error(err);
-    return setFatal("GAGAL MULAI", "Konfigurasi Firebase salah", "Periksa databaseURL di firebaseConfig: harus lengkap dengan https://.");
-  }
-
-  const { ref, query, limitToLast, onValue } = database;
-
-  onValue(ref(db, ".info/serverTimeOffset"), snap => {
-    state.serverOffsetMs = num(snap.val()) ?? 0;
-    render();
+function startMqtt() {
+  const c = mqtt.connect(CONFIG.mqttUrl, {
+    clientId: 'web-' + Math.random().toString(16).slice(2, 10),
+    reconnectPeriod: 3000, connectTimeout: 8000
   });
-  // .info/connected selalu false dulu saat startup. False itu diabaikan sampai pernah
-  // tersambung atau CONNECT_TIMEOUT_MS lewat, supaya tidak ada banner "terputus" sekilas.
-  onValue(ref(db, ".info/connected"), snap => {
-    const connected = snap.val() === true;
-    if (connected || state.infoConnected !== null) state.infoConnected = connected;
-    render();
-  });
-  setTimeout(() => {
-    if (state.infoConnected === null) { state.infoConnected = false; render(); }
-  }, CONNECT_TIMEOUT_MS);
-
-  onValue(ref(db, PATHS.current), snap => {
-    state.current = snap.val();
-    if (state.current && typeof state.current !== "object") state.current = null;
-    state.arrivalMs = nowMs();
-    state.arrivals += state.current ? 1 : 0;
-    render();
-  }, err => {
-    console.error(err);
-    if (denied(err)) {
-      setFatal("AKSES DITOLAK", "Rules Firebase menolak pembacaan", "Dashboard tersambung, tetapi tidak diizinkan membaca data. Izinkan .read pada /device/esp32 di Firebase Console > Realtime Database > Rules, lalu muat ulang.");
-    } else {
-      setFatal("GAGAL BACA", "Tidak bisa membaca /current", "Muat ulang halaman. Detail ada di console browser.");
+  c.on('connect', () => { mqttState = 'connected'; c.subscribe(TOPIC_BASE + '/#'); refreshStatus(); });
+  c.on('reconnect', () => { mqttState = 'connecting'; refreshStatus(); });
+  c.on('close', () => { mqttState = 'disconnected'; refreshStatus(); });
+  c.on('error', () => {});
+  c.on('message', (topic, payload) => {
+    const text = payload.toString();
+    if (topic.endsWith('/status')) { deviceStatus = text; refreshStatus(); return; }
+    if (topic.endsWith('/telemetry')) {
+      try { onTelemetry(JSON.parse(text)); } catch (e) { /* abaikan payload rusak */ }
     }
   });
+}
 
-  onValue(query(ref(db, PATHS.history), limitToLast(100)), snap => {
-    const rows = [];
-    snap.forEach(child => {
-      const row = child.val();
-      const ts = validTs(row?.ts);
-      if (ts !== null) rows.push({ ...row, ts }); // entri ts=0 tidak punya posisi waktu
+/* ---------- Firebase (REST, baca publik) ---------- */
+async function loadHistory() {
+  const wrap = $('histWrap');
+  if (CONFIG.firebaseDbUrl.includes('ISI-PROJECT')) {
+    $('histHint').textContent = 'Isi firebaseDbUrl di bagian CONFIG pada index.html.';
+    return;
+  }
+  wrap.classList.add('loading');
+  try {
+    const n = parseInt($('range').value, 10);
+    const url = CONFIG.firebaseDbUrl.replace(/\/$/, '') + '/readings.json?orderBy=' +
+                encodeURIComponent('"$key"') + '&limitToLast=' + n;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const obj = await res.json();
+    hist = obj ? Object.values(obj).filter((r) => r && typeof r.ts === 'number').sort((a, b) => a.ts - b.ts) : [];
+    $('histHint').textContent = hist.length ? hist.length + ' titik · diperbarui ' + new Date().toLocaleTimeString('id-ID', { hour12: false })
+                                            : 'Belum ada data di Firebase.';
+    paint(histChart, hist, histLabel);
+    renderTable();
+    if (!lastMsgAt && hist.length) {
+      const last = hist[hist.length - 1];
+      updateTiles(last, 'dari Firebase');
+      $('mLast').textContent = new Date(last.ts).toLocaleString('id-ID', { hour12: false });
+    }
+  } catch (e) {
+    $('histHint').textContent = 'Gagal memuat riwayat (' + e.message + '). Cek URL dan rules Firebase.';
+  } finally {
+    wrap.classList.remove('loading');
+  }
+}
+
+function renderTable() {
+  const body = $('tbody');
+  body.textContent = '';
+  hist.slice(-20).reverse().forEach((r) => {
+    const tr = document.createElement('tr');
+    [new Date(r.ts).toLocaleString('id-ID', { hour12: false }), num(r.loadV, 3), num(r.current_mA, 2),
+     num(r.power_mW, 2), num(r.energy_mWh, 3), num(r.temp_C, 1)].forEach((v) => {
+      const td = document.createElement('td'); td.textContent = v; tr.appendChild(td);
     });
-    rows.sort((a, b) => a.ts - b.ts);
-    state.historyLoaded = true;
-    renderHistory(rows);
-  }, err => {
-    console.error(err);
-    state.historyLoaded = true;
-    renderHistory([], readError(err, "riwayat"));
-  });
-
-  onValue(query(ref(db, PATHS.events), limitToLast(20)), snap => {
-    // Urutan push key dipakai, bukan ts: event dengan ts=0 tetap berada di posisi benar.
-    const items = [];
-    snap.forEach(child => { items.unshift(child.val() || {}); });
-    state.eventsLoaded = true;
-    renderEvents(items);
-  }, err => {
-    console.error(err);
-    state.eventsLoaded = true;
-    renderEvents([], readError(err, "riwayat pintu"));
+    body.appendChild(tr);
   });
 }
 
-// Tanpa paket baru pun umur data harus terus naik, jadi tampilan dihitung ulang tiap detik.
-setInterval(render, 1000);
-addEventListener("online", render);
-addEventListener("offline", render);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) render(); });
+function downloadCsv() {
+  const cols = ['ts', 'loadV', 'busV', 'shunt_mV', 'current_mA', 'power_mW', 'energy_mWh', 'temp_C', 'rssi', 'ssid'];
+  const lines = [['waktu_iso'].concat(cols.slice(1)).join(',')];
+  hist.forEach((r) => lines.push([new Date(r.ts).toISOString()].concat(cols.slice(1).map((c) => r[c] ?? '')).join(',')));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' }));
+  a.download = 'doorharvest_' + CONFIG.deviceId + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
-render();
-start();
+/* ---------- Kontrol ---------- */
+document.querySelectorAll('[data-metric]').forEach((b) => b.addEventListener('click', () => {
+  metric = b.dataset.metric;
+  document.querySelectorAll('[data-metric]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  renderCharts();
+}));
+$('range').addEventListener('change', loadHistory);
+$('csv').addEventListener('click', downloadCsv);
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderCharts);
+
+renderCharts();
+startMqtt();
+loadHistory();
+setInterval(loadHistory, CONFIG.historyPollMs);
 </script>
 </body>
 </html>
